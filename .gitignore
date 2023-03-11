@@ -1,4 +1,5 @@
 *.zip
 *.md
+*.txt
 package.json
 first/*

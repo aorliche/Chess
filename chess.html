@@ -1,0 +1,129 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1" />
+  <title>Probabilistic Chess</title>
+  <link rel="stylesheet" href="css/chessboard-1.0.0.min.css">
+</head>
+<body>
+<!--- Begin Example HTML ------------------------------------------------------>
+<div>Evaluation: <span id='evalSpan'>0</span> cp</div>
+<div id="myBoard" style="width: 400px"></div>
+<button id='newGameButton' style='margin-right: 20px'>New Game</button>
+Side:
+<select id='sideSelect' style='margin-left: 5px'>
+    <option>White</option>
+    <option>Black</option>
+</select>
+<!--- End Example HTML -------------------------------------------------------->
+<script src="js/jquery-3.6.4.min.js"></script>
+<script src="js/chessboard-1.0.0.min.js"></script>
+<script type='module'>
+// --- Begin Example JS --------------------------------------------------------
+//var board = Chessboard('myBoard', 'start')
+import { Chess } from './js/chess.js';
+
+var stockfish = new Worker('js/stockfish.js');
+var $ = q => document.querySelector(q);
+var color = 'w';
+
+function initWorker() {
+    stockfish.addEventListener('message', e => {
+        console.log(e.data);
+        var match = e.data.match(/info.*score cp (-?\d+)/);
+        if (match) {
+            $('#evalSpan').innerText = match[1];
+            return;
+        }
+        console.log(color);
+        console.log(game.turn());
+        if (game.turn() !== color) {
+            match = e.data.match(/bestmove ([a-z0-9]+)/);
+            if (match) {
+                window.setTimeout(e => {
+                    game.move(match[1]);
+                    board.position(game.fen());
+                    getEval();
+                }, 500);
+            }
+        }
+    });
+
+    stockfish.addEventListener('error', e => {
+        stockfish.terminate();
+        stockfish = new Worker('js/stockfish.js');
+        initWorker();
+        stockfish.postMessage('uci');
+        getEval();
+    });
+}
+
+initWorker();
+stockfish.postMessage('uci');
+
+var board = null;
+var game = new Chess();
+
+function onDragStart(source, piece, position, orientation) {
+    if (game.isGameOver()) return false;
+    if (
+            (game.turn() === 'w' && piece.search(/^b/) !== -1) ||
+            (game.turn() === 'b' && piece.search(/^w/) !== -1)) {
+        return false
+    }
+}
+
+function onDrop (source, target) {
+    try {
+        game.move({
+            from: source,
+            to: target,
+            promotion: 'q' // NOTE: always promote to a queen for example simplicity
+        });
+    } catch (e) {}
+}
+
+// update the board position after the piece snap
+// for castling, en passant, pawn promotion
+function onSnapEnd () {
+    board.position(game.fen());
+    getEval();
+}
+
+function getEval() {
+    stockfish.postMessage('stop');
+    stockfish.postMessage(`position fen ${game.fen()}`);
+    stockfish.postMessage('go depth 5');
+}
+
+var config = {
+    draggable: true,
+    position: 'start',
+    onDragStart: onDragStart,
+    onDrop: onDrop,
+    onSnapEnd: onSnapEnd
+};
+
+board = Chessboard('myBoard', config);
+
+$('#newGameButton').addEventListener('click', e => {
+    e.preventDefault();
+    if ($('#sideSelect').selectedIndex == 0) {
+        color = 'w';
+        config.orientation = 'white';
+    } else {
+        color = 'b';
+        config.orientation = 'black';
+    }
+    board = Chessboard('myBoard', config);
+    game = new Chess();
+    if (color == 'b') {
+        getEval();
+    }
+});
+
+// --- End Example JS ----------------------------------------------------------
+</script>
+</body>
+</html>
