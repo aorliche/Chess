@@ -46,8 +46,6 @@ function initWorker() {
             $('#evalSpan').innerText = match[1];
             return;
         }
-        console.log(color);
-        console.log(game.turn());
         if (game.turn() !== color) {
             match = e.data.match(/bestmove ([a-z0-9]+)/);
             if (match) {
@@ -127,7 +125,7 @@ $('#newGameButton').addEventListener('click', e => {
     start();
 });
 
-$('restartWorkerButton').addEventListener('click', e => {
+$('#restartWorkerButton').addEventListener('click', e => {
     e.preventDefault();
     start();
 });
