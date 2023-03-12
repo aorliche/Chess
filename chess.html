@@ -16,6 +16,8 @@ Side:
     <option>White</option>
     <option>Black</option>
 </select>
+<br>
+<button id='restartWorkerButton'>Restart Worker</button>
 <!--- End Example HTML -------------------------------------------------------->
 <script src="js/jquery-3.6.4.min.js"></script>
 <script src="js/chessboard-1.0.0.min.js"></script>
@@ -122,6 +124,11 @@ $('#newGameButton').addEventListener('click', e => {
     }
     board = Chessboard('myBoard', config);
     game = new Chess();
+    start();
+});
+
+$('restartWorkerButton').addEventListener('click', e => {
+    e.preventDefault();
     start();
 });
 
