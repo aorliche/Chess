@@ -28,6 +28,14 @@ var stockfish = new Worker('js/stockfish.js');
 var $ = q => document.querySelector(q);
 var color = 'w';
 
+function start() {
+    stockfish.terminate();
+    stockfish = new Worker('js/stockfish.js');
+    initWorker();
+    stockfish.postMessage('uci');
+    getEval();
+}
+
 function initWorker() {
     stockfish.addEventListener('message', e => {
         console.log(e.data);
@@ -51,11 +59,7 @@ function initWorker() {
     });
 
     stockfish.addEventListener('error', e => {
-        stockfish.terminate();
-        stockfish = new Worker('js/stockfish.js');
-        initWorker();
-        stockfish.postMessage('uci');
-        getEval();
+        start();
     });
 }
 
@@ -118,9 +122,7 @@ $('#newGameButton').addEventListener('click', e => {
     }
     board = Chessboard('myBoard', config);
     game = new Chess();
-    if (color == 'b') {
-        getEval();
-    }
+    start();
 });
 
 // --- End Example JS ----------------------------------------------------------
