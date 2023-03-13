@@ -30,6 +30,7 @@ var stockfish = new Worker('js/stockfish.js');
 var $ = q => document.querySelector(q);
 var color = 'w';
 var startCounter = 0;
+var to = null;
 
 function start() {
     stockfish.terminate();
@@ -40,10 +41,13 @@ function start() {
     startCounter++;
     if (startCounter > 2) {
         console.log('Gave up');
-        var possibleMoves = game.moves();
-        var randomIdx = Math.floor(Math.random() * possibleMoves.length);
-        game.move(possibleMoves[randomIdx]);
-        board.position(game.fen());
+        if (game.turn() !== color) {
+            console.log('Not my turn');
+            var possibleMoves = game.moves();
+            var randomIdx = Math.floor(Math.random() * possibleMoves.length);
+            game.move(possibleMoves[randomIdx]);
+            board.position(game.fen());
+        }
     } else {
         getEval();
     }
@@ -57,6 +61,7 @@ function initWorker() {
             $('#evalSpan').innerText = match[1];
             return;
         }
+        clearTimeout(to);
         if (game.turn() !== color) {
             match = e.data.match(/bestmove ([a-z0-9]+)/);
             if (match) {
@@ -111,6 +116,7 @@ function getEval() {
     stockfish.postMessage('stop');
     stockfish.postMessage(`position fen ${game.fen()}`);
     stockfish.postMessage('go depth 5');
+    to = setTimeout(e => start(), 2000);
 }
 
 var config = {
