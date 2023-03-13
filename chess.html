@@ -29,13 +29,24 @@ import { Chess } from './js/chess.js';
 var stockfish = new Worker('js/stockfish.js');
 var $ = q => document.querySelector(q);
 var color = 'w';
+var startCounter = 0;
 
 function start() {
     stockfish.terminate();
     stockfish = new Worker('js/stockfish.js');
     initWorker();
     stockfish.postMessage('uci');
-    getEval();
+    // Make random move if stockfish is being difficult
+    startCounter++;
+    if (startCounter > 2) {
+        console.log('Gave up');
+        var possibleMoves = game.moves();
+        var randomIdx = Math.floor(Math.random() * possibleMoves.length);
+        game.move(possibleMoves[randomIdx]);
+        board.position(game.fen());
+    } else {
+        getEval();
+    }
 }
 
 function initWorker() {
@@ -50,6 +61,7 @@ function initWorker() {
             match = e.data.match(/bestmove ([a-z0-9]+)/);
             if (match) {
                 window.setTimeout(e => {
+                    startCounter = 0;
                     game.move(match[1]);
                     board.position(game.fen());
                     getEval();
