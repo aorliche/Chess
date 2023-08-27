@@ -18,6 +18,7 @@ Side:
 </select>
 <br>
 <button id='restartWorkerButton'>Restart Worker</button>
+<button id='takeBackButton'>Take Back</button>
 <!--- End Example HTML -------------------------------------------------------->
 <script src="js/jquery-3.6.4.min.js"></script>
 <script src="js/chessboard-1.0.0.min.js"></script>
@@ -31,6 +32,7 @@ var $ = q => document.querySelector(q);
 var color = 'w';
 var startCounter = 0;
 var to = null;
+var positions = [];
 
 function start() {
     stockfish.terminate();
@@ -69,6 +71,7 @@ function initWorker() {
                     startCounter = 0;
                     game.move(match[1]);
                     board.position(game.fen());
+                    positions.push(game.fen());
                     getEval();
                 }, 500);
             }
@@ -108,6 +111,7 @@ function onDrop (source, target) {
 // update the board position after the piece snap
 // for castling, en passant, pawn promotion
 function onSnapEnd () {
+    positions.push(game.fen());
     board.position(game.fen());
     getEval();
 }
@@ -129,8 +133,7 @@ var config = {
 
 board = Chessboard('myBoard', config);
 
-$('#newGameButton').addEventListener('click', e => {
-    e.preventDefault();
+function newGame(fen) {
     if ($('#sideSelect').selectedIndex == 0) {
         color = 'w';
         config.orientation = 'white';
@@ -139,13 +142,36 @@ $('#newGameButton').addEventListener('click', e => {
         config.orientation = 'black';
     }
     board = Chessboard('myBoard', config);
-    game = new Chess();
-    start();
+    if (fen) {
+        game = new Chess(fen);
+        board.position(fen, false);
+        getEval();
+    } else {
+        game = new Chess();
+        positions = [game.fen()];
+        start();
+    }
+}
+
+$('#newGameButton').addEventListener('click', e => {
+    e.preventDefault();
+    newGame();
 });
 
 $('#restartWorkerButton').addEventListener('click', e => {
     e.preventDefault();
     start();
+});
+
+$('#takeBackButton').addEventListener('click', e => {
+    e.preventDefault();
+    positions.pop();
+    positions.pop();
+    if (positions.length > 0) {
+        newGame(positions.at(-1));
+    } else {
+        newGame();
+    }
 });
 
 // --- End Example JS ----------------------------------------------------------
