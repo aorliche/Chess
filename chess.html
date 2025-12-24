@@ -275,7 +275,7 @@ $('#guessButton').addEventListener('click', e => {
 			if (bmovesGuess[i] && bmovesGuess[i] != -1) {
 				positions.pop();
 			}
-			if (wmovesGuess[i] != -1) {
+			if (wmovesGuess[i] == -1) {
 				break;
 			}
 		}
