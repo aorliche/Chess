@@ -6,19 +6,58 @@
   <title>Probabilistic Chess</title>
   <link rel="stylesheet" href="css/chessboard-1.0.0.min.css">
 </head>
+<style>
+#scorecard tr {
+	border-bottom: 1px solid black;
+}
+#scorecard tr:last-child {
+	border-bottom: none;
+}
+#scorecard tr th:last-child, #scorecard tr td:last-child {
+	border-right: none;
+}
+#scorecard th, #scorecard td {
+	border-right: 1px solid black;
+	width: 100px;
+}
+#scorecard th:first-child, #scorecard td:first-child {
+	width: 30px;
+}
+#scorecard {
+	border-collapse: collapse;
+	text-align: center;
+}
+#twocolumns {
+	display: flex;
+}
+#left {
+	margin-right: 40px;
+}
+</style>
 <body>
 <!--- Begin Example HTML ------------------------------------------------------>
 <div>Evaluation: <span id='evalSpan'>0</span> cp</div>
-<div id="myBoard" style="width: 400px"></div>
-<button id='newGameButton' style='margin-right: 20px'>New Game</button>
-Side:
-<select id='sideSelect' style='margin-left: 5px'>
-    <option>White</option>
-    <option>Black</option>
-</select>
-<br>
-<button id='restartWorkerButton'>Restart Worker</button>
-<button id='takeBackButton'>Take Back</button>
+<div id='twocolumns'>
+	<div id='left'>
+		<div id="myBoard" style="width: 400px"></div>
+		<button id='newGameButton' style='margin-right: 20px'>New Game</button>
+		Side:
+		<select id='sideSelect' style='margin-left: 5px'>
+			<option>White</option>
+			<option>Black</option>
+		</select>
+		<br>
+		<button id='restartWorkerButton'>Restart Worker</button>
+		<button id='takeBackButton'>Take Back</button>
+		<button id='guessButton'>Enter Guess Mode</button>
+	</div>
+	<div id='right'>
+		<table id='scorecard'>
+			<tr><th></th><th>White</th><th>Black</th></tr>
+			<tr><td>1</td><td></td><td></td></tr>
+		</table>
+	</div>
+</div>
 <!--- End Example HTML -------------------------------------------------------->
 <script src="js/jquery-3.6.4.min.js"></script>
 <script src="js/chessboard-1.0.0.min.js"></script>
@@ -33,6 +72,13 @@ var color = 'w';
 var startCounter = 0;
 var to = null;
 var positions = [];
+// Scorecard
+var wmoves = [];
+var bmoves = [];
+// Guess Chess
+let guessMode = false;
+let wmovesGuess = [];
+let bmovesGuess = [];
 
 function start() {
     stockfish.terminate();
@@ -47,8 +93,19 @@ function start() {
             console.log('Not my turn');
             var possibleMoves = game.moves();
             var randomIdx = Math.floor(Math.random() * possibleMoves.length);
-            game.move(possibleMoves[randomIdx]);
+			const move = possibleMoves[randomIdx];
+            game.move(move);
             board.position(game.fen());
+			// Possible moves are like e2 Ba3 exf4 etc.
+			// Record move
+			if (move[0].toUpperCase() == move[0]) {
+				const piece = move.substring(0,1);
+				updateMoves(piece, move.substring(move.length-2,move.length));
+				updateScorecard();
+			} else {
+				updateMoves('P', move.substring(move.length-2,move.length));
+				updateScorecard();
+			}
         }
     } else {
         getEval();
@@ -70,6 +127,11 @@ function initWorker() {
                 window.setTimeout(e => {
                     startCounter = 0;
                     game.move(match[1]);
+					// Record move
+					const piece = getPieceAtPosition(game, match[1].substring(2,4)).toUpperCase();
+					updateMoves(piece, match[1].substring(2,4));
+					updateScorecard();
+					// Update gameboard
                     board.position(game.fen());
                     positions.push(game.fen());
                     getEval();
@@ -91,6 +153,7 @@ var game = new Chess();
 
 function onDragStart(source, piece, position, orientation) {
     if (game.isGameOver()) return false;
+	if (guessMode) return true;
     if (
             (game.turn() === 'w' && piece.search(/^b/) !== -1) ||
             (game.turn() === 'b' && piece.search(/^w/) !== -1)) {
@@ -105,6 +168,10 @@ function onDrop (source, target) {
             to: target,
             promotion: 'q' // NOTE: always promote to a queen for example simplicity
         });
+		// Record move
+		const piece = getPieceAtPosition(game, target).toUpperCase();
+		updateMoves(piece, target);
+		updateScorecard();
     } catch (e) {}
 }
 
@@ -113,7 +180,9 @@ function onDrop (source, target) {
 function onSnapEnd () {
     positions.push(game.fen());
     board.position(game.fen());
-    getEval();
+	if (!guessMode) {
+		getEval();
+	} 
 }
 
 function getEval() {
@@ -150,6 +219,12 @@ function newGame(fen) {
         game = new Chess();
         positions = [game.fen()];
         start();
+		// Update scorecard
+		wmoves = [];
+		bmoves = [];
+		wmovesGuess = [];
+		bmovesGuess = [];
+		updateScorecard();
     }
 }
 
@@ -167,12 +242,142 @@ $('#takeBackButton').addEventListener('click', e => {
     e.preventDefault();
     positions.pop();
     positions.pop();
+	// Update scorecard
+	if (guessMode) {
+		wmovesGuess = wmovesGuess.slice(0, wmovesGuess.length-1);
+		bmovesGuess = bmovesGuess.slice(0, bmovesGuess.length-1);
+	} else {
+		wmoves = wmoves.slice(0, wmoves.length-1);
+		bmoves = bmoves.slice(0, bmoves.length-1);
+		// Force guessed moves to be same length
+		wmovesGuess.splice(wmoves.length, wmovesGuess.length-wmoves.length);
+		bmovesGuess.splice(bmoves.length, bmovesGuess.length-bmoves.length);
+	}
+	updateScorecard();
     if (positions.length > 0) {
         newGame(positions.at(-1));
     } else {
         newGame();
     }
 });
+
+$('#guessButton').addEventListener('click', e => {
+	const guessText1 = "Enter Guess Mode";
+	const guessText2 = "Exit Guess Mode";
+	e.preventDefault();
+	if (guessMode) {
+		$('#guessButton').innerText = guessText1;
+		// Rewind guessed positions from the end
+		for (let i=wmovesGuess.length-1; i>=0; i++) {
+			if (wmovesGuess[i] != -1) {
+				positions.pop();
+			}
+			if (bmovesGuess[i] && bmovesGuess[i] != -1) {
+				positions.pop();
+			}
+			if (wmovesGuess[i] != -1) {
+				break;
+			}
+		}
+		newGame(positions.at(-1));
+		guessMode = false;
+	} else {
+		$('#guessButton').innerText = guessText2;
+		guessMode = true;
+	}
+});
+
+// New for GuessChess
+function getPieceAtPosition(game, square) {
+	let piece = null;
+	game.board().map(row => {
+		row.map(p => {
+			if (!p) {
+				return;
+			}
+			if (p.square === square) {
+				piece = p.type;
+			}
+		})
+	})
+	return piece;
+}
+
+// Update scorecard with a single move
+function updateMoves(piece, square) {
+	let move;
+	if (piece == 'P') {
+		move = square;
+	} else {
+		move = piece+square;
+	}
+	if (guessMode) {
+		if (wmovesGuess.length == bmovesGuess.length) {
+			wmovesGuess.push(move);
+		} else {
+			bmovesGuess.push(move);
+		}
+	} else {
+		if (wmoves.length == bmoves.length) {
+			wmoves.push(move);
+			if (!wmovesGuess[wmoves.length-1]) {
+				wmovesGuess[wmoves.length-1] = -1;
+			}
+		} else {
+			bmoves.push(move);
+			if (!bmovesGuess[bmoves.length-1]) {
+				bmovesGuess[bmoves.length-1] = -1;
+			}
+		}
+	}
+}
+
+// We reconstruct the entire table on each move for simplicity
+function updateScorecard() {
+console.log(positions.length);
+	const sc = document.querySelector('#scorecard');
+	sc.innerHTML = "";
+	let tr = document.createElement('tr');
+	const th1 = document.createElement('th');
+	const th2 = document.createElement('th');
+	const th3 = document.createElement('th');
+	th2.innerText = 'White';
+	th3.innerText = 'Black';
+	tr.appendChild(th1);
+	tr.appendChild(th2);
+	tr.appendChild(th3);
+	sc.appendChild(tr);
+	for (let i=0; i<wmovesGuess.length; i++) {
+		tr = document.createElement('tr');
+		const td1 = document.createElement('td');
+		const td2 = document.createElement('td');
+		const td3 = document.createElement('td');
+		td1.innerText = (i+1).toString();
+		td2.innerText = wmoves[i] ? wmoves[i] : wmovesGuess[i];
+		if (bmovesGuess[i]) {
+			td3.innerText = bmoves[i] ? bmoves[i] : bmovesGuess[i];
+		}
+		// Color moves
+		if (wmoves[i] == wmovesGuess[i]) {
+			td2.style.color = 'green';
+		} else if (wmoves[i] && wmovesGuess[i] != -1 && wmoves[i] != wmovesGuess[i]) {
+			td2.style.color = 'red';
+		} else if (wmovesGuess[i] != -1) {
+			td2.style.color = 'orange';
+		}
+		if (bmoves[i] == bmovesGuess[i]) {
+			td3.style.color = 'green';
+		} else if (bmoves[i] && bmovesGuess[i] != -1 && bmoves[i] != bmovesGuess[i]) {
+			td3.style.color = 'red';
+		} else if (wmovesGuess[i] != -1) {
+			td3.style.color = 'orange';
+		}
+		tr.appendChild(td1);
+		tr.appendChild(td2);
+		tr.appendChild(td3);
+		sc.appendChild(tr);
+	}
+}
 
 // --- End Example JS ----------------------------------------------------------
 </script>
