@@ -268,7 +268,7 @@ $('#guessButton').addEventListener('click', e => {
 	if (guessMode) {
 		$('#guessButton').innerText = guessText1;
 		// Rewind guessed positions from the end
-		for (let i=wmovesGuess.length-1; i>=0; i++) {
+		for (let i=wmovesGuess.length-1; i>=0; i--) {
 			if (wmovesGuess[i] != -1) {
 				positions.pop();
 			}
@@ -279,11 +279,11 @@ $('#guessButton').addEventListener('click', e => {
 				break;
 			}
 		}
-		newGame(positions.at(-1));
 		guessMode = false;
+		newGame(positions.at(-1));
 	} else {
-		$('#guessButton').innerText = guessText2;
 		guessMode = true;
+		$('#guessButton').innerText = guessText2;
 	}
 });
 
@@ -334,7 +334,6 @@ function updateMoves(piece, square) {
 
 // We reconstruct the entire table on each move for simplicity
 function updateScorecard() {
-console.log(positions.length);
 	const sc = document.querySelector('#scorecard');
 	sc.innerHTML = "";
 	let tr = document.createElement('tr');
